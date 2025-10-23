@@ -170,7 +170,6 @@ output*
 .history
 *.ipynb
 pyrightconfig.json
-train*.sh
 eval*.sh
 infer*.sh
 .ruff_cache

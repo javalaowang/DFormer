@@ -90,7 +90,11 @@ def get_path(
             item_name.replace("rgb", "semantic").replace("image", "gt_labelIds") + _gt_format,
         )
     else:
-        item_name = item_name.split("/")[1].split(".jpg")[0]
+        # 处理直接的文件名（不包含路径）
+        if "/" in item_name:
+            item_name = item_name.split("/")[1].split(".jpg")[0]
+        else:
+            item_name = item_name.split(".jpg")[0]
         rgb_path = os.path.join(
             _rgb_path,
             item_name.replace(".jpg", "").replace(".png", "") + _rgb_format,
