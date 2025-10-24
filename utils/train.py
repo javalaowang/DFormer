@@ -515,7 +515,11 @@ with Engine(custom_parser=parser) as engine:
                         infor="_miou_" + str(miou),
                         metric=miou,
                     )
-                print("miou", miou, "best", best_miou)
+                try:
+                    print("miou", miou, "best", best_miou)
+                except BrokenPipeError:
+                    # 忽略管道中断错误，继续训练
+                    pass
             logger.info(f"Epoch {epoch} validation result: mIoU {miou}, best mIoU {best_miou}")
             eval_timer.stop()
 

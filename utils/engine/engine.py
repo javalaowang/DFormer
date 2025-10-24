@@ -2,6 +2,8 @@ import os
 import os.path as osp
 import time
 import argparse
+import traceback
+import sys
 from cv2 import log
 
 import torch
@@ -35,40 +37,95 @@ class State(object):
 
 class Engine(object):
     def __init__(self, custom_parser=None):
-        logger.info("PyTorch Version {}".format(torch.__version__))
-        self.state = State()
-        self.devices = None
-        self.distributed = False
+        try:
+            logger.info("=" * 60)
+            logger.info("INITIALIZING ENGINE")
+            logger.info("=" * 60)
+            logger.info("PyTorch Version {}".format(torch.__version__))
+            
+            self.state = State()
+            self.devices = None
+            self.distributed = False
 
-        if custom_parser is None:
-            self.parser = argparse.ArgumentParser()
-        else:
-            assert isinstance(custom_parser, argparse.ArgumentParser)
-            self.parser = custom_parser
+            logger.info("Step 1: Setting up argument parser...")
+            if custom_parser is None:
+                self.parser = argparse.ArgumentParser()
+            else:
+                assert isinstance(custom_parser, argparse.ArgumentParser)
+                self.parser = custom_parser
 
-        self.inject_default_parser()
-        self.args = self.parser.parse_args()
+            logger.info("Step 2: Injecting default parser arguments...")
+            self.inject_default_parser()
+            
+            logger.info("Step 3: Parsing command line arguments...")
+            self.args = self.parser.parse_args()
 
-        self.continue_state_object = self.args.continue_fpath
-        if "WORLD_SIZE" in os.environ:
-            self.distributed = int(os.environ["WORLD_SIZE"]) > 1
-        print(self.distributed)
+            logger.info("Step 4: Setting up continue state object...")
+            self.continue_state_object = self.args.continue_fpath
+            
+            logger.info("Step 5: Checking distributed training setup...")
+            if "WORLD_SIZE" in os.environ:
+                self.distributed = int(os.environ["WORLD_SIZE"]) > 1
+            logger.info(f"Distributed training: {self.distributed}")
 
-        if self.distributed:
-            # self.local_rank = self.args.local_rank
-            self.local_rank = int(os.environ["LOCAL_RANK"])
-            self.world_size = int(os.environ["WORLD_SIZE"])
-            torch.cuda.set_device(self.local_rank)
-            os.environ["MASTER_ADDR"] = "127.0.0.1"
-            # os.environ['MASTER_PORT'] = self.args.port
-            torch.distributed.init_process_group(backend="nccl")
-            print(self.local_rank)
-            self.devices = [0, 1]  # [i for i in range(self.world_size)]
-        else:
-            self.local_rank = int(os.environ["LOCAL_RANK"])
-            self.devices = [0, 1]  # parse_devices(self.args.devices)
+            if self.distributed:
+                logger.info("Step 6a: Setting up distributed training...")
+                # self.local_rank = self.args.local_rank
+                self.local_rank = int(os.environ["LOCAL_RANK"])
+                self.world_size = int(os.environ["WORLD_SIZE"])
+                logger.info(f"Local rank: {self.local_rank}, World size: {self.world_size}")
+                
+                logger.info("Setting CUDA device...")
+                torch.cuda.set_device(self.local_rank)
+                
+                logger.info("Setting up distributed process group...")
+                os.environ["MASTER_ADDR"] = "127.0.0.1"
+                # os.environ['MASTER_PORT'] = self.args.port
+                torch.distributed.init_process_group(backend="nccl")
+                logger.info(f"Distributed process group initialized. Local rank: {self.local_rank}")
+                self.devices = [0, 1]  # [i for i in range(self.world_size)]
+            else:
+                logger.info("Step 6b: Setting up single GPU training...")
+                self.local_rank = int(os.environ.get("LOCAL_RANK", 0))
+                logger.info(f"Local rank: {self.local_rank}")
+                self.devices = [0, 1]  # parse_devices(self.args.devices)
 
-        self.checkpoint_state = []
+            logger.info("Step 7: Initializing checkpoint state...")
+            self.checkpoint_state = []
+            
+            logger.info("=" * 60)
+            logger.info("ENGINE INITIALIZATION COMPLETED SUCCESSFULLY")
+            logger.info("=" * 60)
+            
+        except Exception as e:
+            logger.error("=" * 80)
+            logger.error("ENGINE INITIALIZATION FAILED")
+            logger.error("=" * 80)
+            logger.error(f"Exception Type: {type(e).__name__}")
+            logger.error(f"Exception Message: {str(e)}")
+            logger.error(f"Exception Location: {sys.exc_info()[2].tb_frame.f_code.co_filename}:{sys.exc_info()[2].tb_lineno}")
+            logger.error(f"Function Name: {sys.exc_info()[2].tb_frame.f_code.co_name}")
+            
+            # 记录完整的堆栈跟踪
+            logger.error("Full Traceback:")
+            logger.error("".join(traceback.format_exception(type(e), e, sys.exc_info()[2])))
+            
+            # 记录环境信息
+            logger.error("Environment Information:")
+            logger.error(f"  - PyTorch Version: {torch.__version__}")
+            logger.error(f"  - CUDA Available: {torch.cuda.is_available()}")
+            logger.error(f"  - CUDA Device Count: {torch.cuda.device_count()}")
+            logger.error(f"  - Current Device: {torch.cuda.current_device() if torch.cuda.is_available() else 'N/A'}")
+            
+            # 记录环境变量
+            logger.error("Environment Variables:")
+            env_vars = ['WORLD_SIZE', 'LOCAL_RANK', 'RANK', 'MASTER_ADDR', 'MASTER_PORT', 'CUDA_VISIBLE_DEVICES']
+            for var in env_vars:
+                value = os.environ.get(var, 'Not set')
+                logger.error(f"  - {var}: {value}")
+            
+            logger.error("=" * 80)
+            raise  # 重新抛出异常，让__exit__方法处理
 
     def inject_default_parser(self):
         p = self.parser
@@ -182,8 +239,40 @@ class Engine(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, exc_type, exc_value, exc_traceback):
         torch.cuda.empty_cache()
-        if type is not None:
-            logger.warning("A exception occurred during Engine initialization, give up running process")
+        if exc_type is not None:
+            # 记录详细的异常信息
+            logger.error("=" * 80)
+            logger.error("EXCEPTION OCCURRED DURING ENGINE INITIALIZATION")
+            logger.error("=" * 80)
+            logger.error(f"Exception Type: {exc_type.__name__}")
+            logger.error(f"Exception Message: {str(exc_value)}")
+            logger.error(f"Exception Location: {exc_traceback.tb_frame.f_code.co_filename}:{exc_traceback.tb_lineno}")
+            logger.error(f"Function Name: {exc_traceback.tb_frame.f_code.co_name}")
+            
+            # 记录完整的堆栈跟踪
+            logger.error("Full Traceback:")
+            logger.error("".join(traceback.format_exception(exc_type, exc_value, exc_traceback)))
+            
+            # 记录环境信息
+            logger.error("Environment Information:")
+            logger.error(f"  - PyTorch Version: {torch.__version__}")
+            logger.error(f"  - CUDA Available: {torch.cuda.is_available()}")
+            logger.error(f"  - CUDA Device Count: {torch.cuda.device_count()}")
+            logger.error(f"  - Current Device: {torch.cuda.current_device() if torch.cuda.is_available() else 'N/A'}")
+            logger.error(f"  - Distributed: {self.distributed}")
+            logger.error(f"  - Local Rank: {getattr(self, 'local_rank', 'Not set')}")
+            logger.error(f"  - World Size: {getattr(self, 'world_size', 'Not set')}")
+            
+            # 记录环境变量
+            logger.error("Environment Variables:")
+            env_vars = ['WORLD_SIZE', 'LOCAL_RANK', 'RANK', 'MASTER_ADDR', 'MASTER_PORT', 'CUDA_VISIBLE_DEVICES']
+            for var in env_vars:
+                value = os.environ.get(var, 'Not set')
+                logger.error(f"  - {var}: {value}")
+            
+            logger.error("=" * 80)
+            logger.error("Giving up running process due to exception")
+            logger.error("=" * 80)
             return False
