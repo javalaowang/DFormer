@@ -73,7 +73,10 @@ class gpu_timer:
 
     def stop(self):
         if self.start_time is None:
-            print("Use start() before stop(). ")
+            try:
+                print("Use start() before stop(). ")
+            except BrokenPipeError:
+                pass  # 忽略管道中断错误
         torch.cuda.synchronize()
         self.stop_time = time.perf_counter()
         elapsed = self.stop_time - self.start_time
@@ -371,7 +374,10 @@ with Engine(custom_parser=parser) as engine:
             if ((idx + 1) % int((config.niters_per_epoch) * 0.1) == 0 or idx == 0) and (
                 (engine.distributed and (engine.local_rank == 0)) or (not engine.distributed)
             ):
-                print(print_str)
+                try:
+                    print(print_str)
+                except BrokenPipeError:
+                    pass  # 忽略管道中断错误，继续训练
 
             del loss
             # pbar.set_description(print_str, refresh=False)
@@ -452,7 +458,10 @@ with Engine(custom_parser=parser) as engine:
                                 infor="_miou_" + str(miou),
                                 metric=miou,
                             )
-                        print("miou", miou, "best", best_miou)
+                        try:
+                            print("miou", miou, "best", best_miou)
+                        except BrokenPipeError:
+                            pass  # 忽略管道中断错误，继续训练
             elif not engine.distributed:
                 with torch.no_grad():
                     model.eval()
