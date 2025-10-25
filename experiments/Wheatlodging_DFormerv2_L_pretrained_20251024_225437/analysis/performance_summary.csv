@@ -1,0 +1,4 @@
+Metric,Value,Note
+Best mIoU,78.80%,Epoch 363
+Final mIoU,2.97%,Epoch 464
+Training Stability,77.6/100,CV-based

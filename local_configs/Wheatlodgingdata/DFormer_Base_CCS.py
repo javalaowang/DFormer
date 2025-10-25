@@ -6,7 +6,7 @@ DFormer-Base with CCS Shape Prior
     bash train.sh  (修改--config=local_configs.WheatLodging.DFormer_Base_CCS)
 """
 
-from .._base_.datasets.WheatLodging import *
+from .._base_.datasets.Wheatlodgingdata import *
 
 """ Settings for network """
 C.backbone = "DFormer-Base"
@@ -58,8 +58,8 @@ C.tb_dir = osp.abspath(osp.join(C.log_dir, "tb"))
 C.log_dir_link = C.log_dir
 C.checkpoint_dir = osp.abspath(osp.join(C.log_dir, "checkpoint"))
 
-if not os.path.exists(config.log_dir):
-    os.makedirs(config.log_dir, exist_ok=True)
+if not os.path.exists(C.log_dir):
+    os.makedirs(C.log_dir, exist_ok=True)
 
 exp_time = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
 C.log_file = C.log_dir + "/log_" + exp_time + ".log"

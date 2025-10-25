@@ -18,6 +18,18 @@ from utils.dataloader.dataloader import get_train_loader, get_val_loader
 from utils.dataloader.RGBXDataset import RGBXDataset
 from utils.engine.engine import Engine
 from utils.engine.logger import get_logger
+
+
+def safe_print(*args, **kwargs):
+    """
+    安全的print函数，处理BrokenPipeError异常
+    当输出管道被中断时不会导致程序崩溃
+    """
+    try:
+        print(*args, **kwargs)
+    except BrokenPipeError:
+        # 忽略管道中断错误，继续程序执行
+        pass
 from utils.init_func import configure_optimizers, group_weight
 from utils.lr_policy import WarmUpPolyLR
 from utils.pyt_utils import all_reduce_tensor
@@ -73,10 +85,7 @@ class gpu_timer:
 
     def stop(self):
         if self.start_time is None:
-            try:
-                print("Use start() before stop(). ")
-            except BrokenPipeError:
-                pass  # 忽略管道中断错误
+            safe_print("Use start() before stop(). ")
         torch.cuda.synchronize()
         self.stop_time = time.perf_counter()
         elapsed = self.stop_time - self.start_time
@@ -374,10 +383,7 @@ with Engine(custom_parser=parser) as engine:
             if ((idx + 1) % int((config.niters_per_epoch) * 0.1) == 0 or idx == 0) and (
                 (engine.distributed and (engine.local_rank == 0)) or (not engine.distributed)
             ):
-                try:
-                    print(print_str)
-                except BrokenPipeError:
-                    pass  # 忽略管道中断错误，继续训练
+                safe_print(print_str)
 
             del loss
             # pbar.set_description(print_str, refresh=False)
@@ -458,10 +464,7 @@ with Engine(custom_parser=parser) as engine:
                                 infor="_miou_" + str(miou),
                                 metric=miou,
                             )
-                        try:
-                            print("miou", miou, "best", best_miou)
-                        except BrokenPipeError:
-                            pass  # 忽略管道中断错误，继续训练
+                        safe_print("miou", miou, "best", best_miou)
             elif not engine.distributed:
                 with torch.no_grad():
                     model.eval()
@@ -524,11 +527,7 @@ with Engine(custom_parser=parser) as engine:
                         infor="_miou_" + str(miou),
                         metric=miou,
                     )
-                try:
-                    print("miou", miou, "best", best_miou)
-                except BrokenPipeError:
-                    # 忽略管道中断错误，继续训练
-                    pass
+                safe_print("miou", miou, "best", best_miou)
             logger.info(f"Epoch {epoch} validation result: mIoU {miou}, best mIoU {best_miou}")
             eval_timer.stop()
 
