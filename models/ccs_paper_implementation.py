@@ -104,7 +104,8 @@ class ConvexCombinationStar(nn.Module):
         num_centers: int = 5,
         temperature: float = 1.0,
         learnable_centers: bool = True,
-        learnable_radius: bool = True
+        learnable_radius: bool = True,
+        feature_dim: int = 512
     ):
         super().__init__()
         
@@ -120,7 +121,7 @@ class ConvexCombinationStar(nn.Module):
             self.center_predictor = nn.Sequential(
                 nn.AdaptiveAvgPool2d(1),
                 nn.Flatten(),
-                nn.Linear(512, 256),  # 假设输入特征维度为512
+                nn.Linear(feature_dim, 256),
                 nn.ReLU(),
                 nn.Linear(256, 128),
                 nn.ReLU(),
@@ -216,7 +217,8 @@ class CCSVariationalModule(nn.Module):
         temperature: float = 1.0,
         learnable_centers: bool = True,
         learnable_radius: bool = True,
-        variational_weight: float = 0.1
+        variational_weight: float = 0.1,
+        feature_dim: int = 512
     ):
         super().__init__()
         
@@ -227,14 +229,15 @@ class CCSVariationalModule(nn.Module):
             num_centers=num_centers,
             temperature=temperature,
             learnable_centers=learnable_centers,
-            learnable_radius=learnable_radius
+            learnable_radius=learnable_radius,
+            feature_dim=feature_dim
         )
         
         # 变分权重学习
         self.weight_net = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
-            nn.Linear(512, 64),
+            nn.Linear(feature_dim, 64),
             nn.ReLU(),
             nn.Linear(64, 1),
             nn.Sigmoid()
@@ -362,7 +365,8 @@ class CCSHead(nn.Module):
             self.ccs_variational = CCSVariationalModule(
                 num_centers=num_centers,
                 temperature=temperature,
-                variational_weight=variational_weight
+                variational_weight=variational_weight,
+                feature_dim=in_channels
             )
             
             # CCS形状损失

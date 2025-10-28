@@ -14,6 +14,7 @@ from torch.nn.parallel import DistributedDataParallel
 from val_mm import evaluate, evaluate_msf
 
 from models.builder import EncoderDecoder as segmodel
+from models.dformer_ccs_paper import DFormerWithCCSPaper
 from utils.dataloader.dataloader import get_train_loader, get_val_loader
 from utils.dataloader.RGBXDataset import RGBXDataset
 from utils.engine.engine import Engine
@@ -198,12 +199,34 @@ with Engine(custom_parser=parser) as engine:
         BatchNorm2d = nn.BatchNorm2d
         logger.info("using regular bn")
 
-    model = segmodel(
-        cfg=config,
-        criterion=criterion,
-        norm_layer=BatchNorm2d,
-        syncbn=args.syncbn,
-    )
+    # 根据配置选择模型
+    if hasattr(config, 'use_ccs') and config.use_ccs:
+        print(f"Using DFormerWithCCSPaper with CCS parameters:")
+        print(f"  - CCS Centers: {config.ccs_num_centers}")
+        print(f"  - CCS Temperature: {config.ccs_temperature}")
+        print(f"  - CCS Variational Weight: {config.ccs_variational_weight}")
+        print(f"  - CCS Shape Lambda: {config.ccs_shape_lambda}")
+        
+        model = DFormerWithCCSPaper(
+            cfg=config,
+            criterion=criterion,
+            norm_layer=BatchNorm2d,
+            syncbn=args.syncbn,
+            use_ccs=config.use_ccs,
+            ccs_num_centers=config.ccs_num_centers,
+            ccs_temperature=config.ccs_temperature,
+            ccs_variational_weight=config.ccs_variational_weight,
+            ccs_shape_lambda=config.ccs_shape_lambda,
+            ccs_learnable_centers=config.ccs_learnable_centers,
+            ccs_learnable_radius=config.ccs_learnable_radius
+        )
+    else:
+        model = segmodel(
+            cfg=config,
+            criterion=criterion,
+            norm_layer=BatchNorm2d,
+            syncbn=args.syncbn,
+        )
     # weight=torch.load('checkpoints/NYUv2_DFormer_Large.pth')['model']
     # w_list=list(weight.keys())
     # # for k in w_list:

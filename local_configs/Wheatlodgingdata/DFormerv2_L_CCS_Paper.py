@@ -36,10 +36,10 @@ C.lr = 2e-5  # 预训练模型使用较小的学习率
 C.lr_power = 0.9
 C.momentum = 0.9
 C.weight_decay = 0.01
-C.batch_size = 2  # 保持与原始配置一致
+C.batch_size = 1  # 减少batch size以节省内存
 C.nepochs = 150   # 论文实验使用150轮
 C.niters_per_epoch = C.num_train_imgs // C.batch_size + 1
-C.num_workers = 8
+C.num_workers = 0  # 单GPU训练时设置为0避免多进程问题
 C.train_scale_array = [0.75, 1, 1.25]
 C.warm_up_epoch = 10
 
@@ -47,8 +47,11 @@ C.warm_up_epoch = 10
 C.fix_bias = True
 C.bn_eps = 1e-3
 C.bn_momentum = 0.1
+
+# 辅助头配置
+C.aux_rate = 0.0  # 禁用辅助头，专注于CCS
+C.aux_index = 0   # 辅助头索引
 C.drop_path_rate = 0.1
-C.aux_rate = 0.0  # 论文实验不使用辅助头
 
 # 早停机制
 C.early_stopping = True

@@ -77,6 +77,11 @@ import os
 # 消融实验根目录
 ablation_root = "experiments/paper_ablation"
 experiment_name = f"DFormerv2_L_CCS_Paper_{C.ablation_variant}"
+
+# 添加缺失的配置属性
+C.pad = False
+C.eval_h = 500
+C.eval_w = 500
 timestamp = time.strftime("%Y%m%d-%H%M%S", time.localtime())
 
 C.log_dir = osp.abspath(osp.join(ablation_root, experiment_name, timestamp))

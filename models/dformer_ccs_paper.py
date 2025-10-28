@@ -66,7 +66,9 @@ class DFormerWithCCSPaper(nn.Module):
                 feature_dim = self.dformer.channels[-1]
             else:
                 # 根据backbone确定特征维度
-                if 'Large' in cfg.backbone:
+                if 'DFormerv2_L' in cfg.backbone:
+                    feature_dim = 640
+                elif 'Large' in cfg.backbone:
                     feature_dim = 576
                 elif 'Base' in cfg.backbone or 'Small' in cfg.backbone:
                     feature_dim = 512
@@ -112,12 +114,19 @@ class DFormerWithCCSPaper(nn.Module):
         """
         B, _, H, W = rgb.shape
         
+        # 确保所有输入都在同一设备上
+        device = rgb.device
+        if modal_x is not None:
+            modal_x = modal_x.to(device)
+        if label is not None:
+            label = label.to(device)
+        
         # 1. DFormer backbone特征提取
         features = self.dformer.backbone(rgb, modal_x)
         
-        # features是一个列表 [f1, f2, f3, f4] 或 ([f1, f2, f3, f4], depth_features)
-        if isinstance(features, tuple):
-            features = features[0]
+        # features是一个tuple (f1, f2, f3, f4)
+        # 转换为list以便索引访问
+        features = list(features)
         
         # 2. 原始decoder
         decoder_output = self.dformer.decode_head.forward(features)

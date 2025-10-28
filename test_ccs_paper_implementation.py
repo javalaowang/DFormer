@@ -237,14 +237,21 @@ def test_dformer_integration():
         ccs_shape_lambda=0.1
     )
     
-    print(f"   Model created successfully")
+    # 将模型移到GPU
+    if torch.cuda.is_available():
+        model = model.cuda()
+        device = 'cuda'
+    else:
+        device = 'cpu'
+    
+    print(f"   Model created successfully on {device}")
     print(f"   CCS config: {model.get_ccs_config()}")
     
     # 创建测试数据
     B, H, W = 2, 128, 128
-    rgb = torch.randn(B, 3, H, W)
-    depth = torch.randn(B, 3, H, W)
-    label = torch.randint(0, 3, (B, H, W))
+    rgb = torch.randn(B, 3, H, W).to(device)
+    depth = torch.randn(B, 3, H, W).to(device)
+    label = torch.randint(0, 3, (B, H, W)).to(device)
     
     print(f"\n2. Input shapes:")
     print(f"   RGB: {rgb.shape}")
