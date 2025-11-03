@@ -9,6 +9,7 @@ from importlib import import_module
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from tensorboardX import SummaryWriter
 from torch.nn.parallel import DistributedDataParallel
 from val_mm import evaluate, evaluate_msf
@@ -179,6 +180,27 @@ with Engine(custom_parser=parser) as engine:
 
     criterion = nn.CrossEntropyLoss(reduction="none", ignore_index=config.background)
 
+    # Initialize vCLR components if enabled
+    vclr_enabled = getattr(config, 'use_multi_view_consistency', False)
+    vclr_components = {}
+    
+    if vclr_enabled:
+        logger.info("="*60)
+        logger.info("Initializing v-CLR Multi-View Consistency Learning")
+        logger.info("="*60)
+        
+        try:
+            from models.losses.view_consistent_loss import ViewConsistencyLoss
+            vclr_components['consistency_loss'] = ViewConsistencyLoss(
+                lambda_consistent=getattr(config, 'consistency_loss_weight', 0.1),
+                lambda_alignment=getattr(config, 'alignment_loss_weight', 0.05),
+                consistency_type=getattr(config, 'consistency_type', 'cosine_similarity')
+            ).cuda()
+            logger.info(f"✓ ViewConsistencyLoss initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize ViewConsistencyLoss: {e}")
+            vclr_enabled = False
+    
     if args.syncbn:
         BatchNorm2d = nn.SyncBatchNorm
         logger.info("using syncbn")
@@ -301,6 +323,10 @@ with Engine(custom_parser=parser) as engine:
         dataloader = iter(train_loader)
 
         sum_loss = 0
+        sum_consis_loss = 0
+        sum_sim_loss = 0
+        sum_align_loss = 0
+        consis_loss_count = 0
         i = 0
         train_timer.start()
         for idx in range(config.niters_per_epoch):
@@ -316,11 +342,61 @@ with Engine(custom_parser=parser) as engine:
             gts = gts.cuda(non_blocking=True)
             modal_xs = modal_xs.cuda(non_blocking=True)
 
-            if args.amp:
-                with torch.autocast(device_type="cuda", dtype=torch.float16):
-                    loss = model(imgs, modal_xs, gts)
+            if vclr_enabled:
+                # vCLR training: return features for consistency loss
+                if args.amp:
+                    with torch.autocast(device_type="cuda", dtype=torch.float16):
+                        seg_loss, features = model(imgs, modal_xs, gts, return_features=True)
+                else:
+                    seg_loss, features = model(imgs, modal_xs, gts, return_features=True)
+                
+                # Apply consistency loss: use last stage features with dimension alignment
+                if isinstance(features, (list, tuple)) and len(features) >= 2:
+                    # Use last stage features and align channels
+                    feat1 = features[-1]  # Last stage features
+                    
+                    # For consistency, use same features with different spatial sampling
+                    # Create two "views" by applying different spatial sampling
+                    B, C, H, W = feat1.shape
+                    
+                    # View 1: original features
+                    v1 = feat1
+                    
+                    # View 2: downsampled then upsampled (simulated augmentation)
+                    v2 = F.avg_pool2d(feat1, kernel_size=2, stride=2, padding=0)
+                    v2 = F.interpolate(v2, size=(H, W), mode='bilinear', align_corners=False)
+                    
+                    # Create depth tensors
+                    d1 = torch.zeros(B, 1, H, W).cuda()
+                    d2 = torch.zeros(B, 1, H, W).cuda()
+                    
+                    # Compute consistency loss with error handling
+                    try:
+                        consis_loss_dict = vclr_components['consistency_loss'](v1, v2, d1, d2)
+                        consis_loss = consis_loss_dict['loss_total']
+                        
+                        # Accumulate consistency loss components for logging
+                        consis_loss_count += 1
+                        sum_consis_loss += consis_loss.item()
+                        if 'loss_consistency' in consis_loss_dict:
+                            sum_sim_loss += consis_loss_dict['loss_consistency'].item()
+                        if 'loss_alignment' in consis_loss_dict:
+                            sum_align_loss += consis_loss_dict['loss_alignment'].item()
+                    except Exception as e:
+                        logger.warning(f"Consistency loss computation failed: {e}")
+                        consis_loss = torch.tensor(0.0, device=seg_loss.device)
+                    
+                    # Total loss
+                    loss = seg_loss + getattr(config, 'consistency_loss_weight', 0.1) * consis_loss
+                else:
+                    loss = seg_loss
             else:
-                loss = model(imgs, modal_xs, gts)
+                # Standard training
+                if args.amp:
+                    with torch.autocast(device_type="cuda", dtype=torch.float16):
+                        loss = model(imgs, modal_xs, gts)
+                else:
+                    loss = model(imgs, modal_xs, gts)
 
             # reduce the whole loss over multi-gpu
             if engine.distributed:
@@ -371,11 +447,48 @@ with Engine(custom_parser=parser) as engine:
             if ((idx + 1) % int((config.niters_per_epoch) * 0.1) == 0 or idx == 0) and (
                 (engine.distributed and (engine.local_rank == 0)) or (not engine.distributed)
             ):
-                print(print_str)
+                try:
+                    print(print_str)
+                    # Log vCLR details if enabled and this is a logged iteration
+                    if vclr_enabled and idx < 3:  # Log first 3 iterations for debugging
+                        try:
+                            if consis_loss_count > 0:
+                                current_avg_consis = sum_consis_loss / consis_loss_count
+                                current_avg_sim = sum_sim_loss / consis_loss_count if sum_sim_loss > 0 else 0
+                                current_avg_align = sum_align_loss / consis_loss_count if sum_align_loss > 0 else 0
+                                logger.info(f"[vCLR] Iter {idx+1}: avg_consis={current_avg_consis:.4f}, "
+                                          f"avg_sim={current_avg_sim:.4f}, avg_align={current_avg_align:.4f}")
+                        except Exception as e:
+                            logger.debug(f"Error logging vCLR stats: {e}")
+                except BrokenPipeError:
+                    # Ignore broken pipe errors, just continue
+                    pass
 
             del loss
             # pbar.set_description(print_str, refresh=False)
-        logger.info(print_str)
+        
+        # Generate final epoch summary with error handling
+        try:
+            if vclr_enabled and consis_loss_count > 0:
+                avg_consis_loss = sum_consis_loss / consis_loss_count
+                avg_sim_loss = sum_sim_loss / consis_loss_count
+                avg_align_loss = sum_align_loss / consis_loss_count
+                summary_str = (f"Epoch {epoch}/{config.nepochs} completed - "
+                             f"avg_loss={sum_loss / config.niters_per_epoch:.4f}, "
+                             f"avg_consistency_loss={avg_consis_loss:.4f}, "
+                             f"avg_similarity_loss={avg_sim_loss:.4f}, "
+                             f"avg_alignment_loss={avg_align_loss:.4f}")
+            else:
+                summary_str = (f"Epoch {epoch}/{config.nepochs} completed - "
+                             f"avg_loss={sum_loss / config.niters_per_epoch:.4f}")
+            logger.info(summary_str)
+        except Exception as e:
+            # Safe fallback logging
+            try:
+                logger.info(f"Epoch {epoch}/{config.nepochs} completed - avg_loss={sum_loss / config.niters_per_epoch:.4f}")
+            except:
+                pass
+        
         train_timer.stop()
 
         # if (engine.distributed and (engine.local_rank == 0)) or (

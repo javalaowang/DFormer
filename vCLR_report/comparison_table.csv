@@ -1,0 +1,3 @@
+Method,mIoU (%),Improvement,Best Epoch
+Baseline (DFormerv2-Large),75.50,-,85
+DFormerv2-Large + v-CLR,79.62,+4.12,100

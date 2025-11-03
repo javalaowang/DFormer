@@ -12,10 +12,10 @@ C.lr = 2e-5  # 预训练模型使用较小的学习率
 C.lr_power = 0.9
 C.momentum = 0.9
 C.weight_decay = 0.01  # 预训练模型使用较小的权重衰减
-C.batch_size = 2  # 保持较小的batch size
+C.batch_size = 4  # 增大batch size以提升GPU利用率
 C.nepochs = 200  # 预训练模型通常需要更少的训练轮数
 C.niters_per_epoch = C.num_train_imgs // C.batch_size + 1
-C.num_workers = 8
+C.num_workers = 12  # 增加数据加载线程数以提升I/O性能
 C.train_scale_array = [0.75, 1, 1.25]  # 适中的数据增强
 C.warm_up_epoch = 10  # 预训练模型使用较短的warm up
 

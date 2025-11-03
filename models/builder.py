@@ -238,17 +238,37 @@ class EncoderDecoder(nn.Module):
             return out, aux_fm
         return out
 
-    def forward(self, rgb, modal_x=None, label=None):
+    def forward(self, rgb, modal_x=None, label=None, return_features=False):
         # print('builder',rgb.shape,modal_x.shape)
+        
+        # Extract features from backbone
+        features = self.backbone(rgb, modal_x)
+        if len(features) == 2:  # if output is (rgb,depth) only use rgb
+            features = features[0]
+        
+        # Decode
         if self.aux_head:
-            out, aux_fm = self.encode_decode(rgb, modal_x)
+            out, aux_fm = self._decode(features, rgb.shape)
         else:
-            out = self.encode_decode(rgb, modal_x)
+            out = self._decode(features, rgb.shape)
+        
         if label is not None:
             loss = self.criterion(out, label.long())[label.long() != self.cfg.background].mean()
             if self.aux_head:
                 loss += (
                     self.aux_rate * self.criterion(aux_fm, label.long())[label.long() != self.cfg.background].mean()
                 )
+            
+            if return_features:
+                return loss, features
             return loss
+        
+        if return_features:
+            return out, features
+        return out
+    
+    def _decode(self, features, orisize):
+        """Helper method for decoding"""
+        out = self.decode_head.forward(features)
+        out = F.interpolate(out, size=orisize[-2:], mode="bilinear", align_corners=False)
         return out

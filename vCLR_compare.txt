@@ -1,0 +1,23 @@
+vCLR核心逻辑对比：
+================
+
+修改前的核心逻辑：
+- 行356: feat1 = features[-1]
+- 行359: v1 = feat1
+- 行365-367: v2 = 下采样+上采样
+- 行370-371: 调用 vclr_components['consistency_loss'](v1, v2, d1, d2)
+- 行371: consis_loss = consis_loss_dict['loss_total']
+- 行374: loss = seg_loss + 0.1 * consis_loss
+
+修改后的核心逻辑：
+- 行356: feat1 = features[-1] ✓ 完全一样
+- 行363: v1 = feat1 ✓ 完全一样  
+- 行366-367: v2 = 下采样+上采样 ✓ 完全一样
+- 行375: 调用 vclr_components['consistency_loss'](v1, v2, d1, d2) ✓ 完全一样
+- 行376: consis_loss = consis_loss_dict['loss_total'] ✓ 完全一样
+- 行390: loss = seg_loss + 0.1 * consis_loss ✓ 完全一样
+
+新增内容（仅用于日志和错误处理）：
+- try-except保护（防止崩溃）
+- 累计统计变量（sum_consis_loss等）
+- 详细的epoch结束日志
