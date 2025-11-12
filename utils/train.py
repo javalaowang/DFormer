@@ -640,8 +640,11 @@ with Engine(custom_parser=parser) as engine:
         for i in range(engine.state.epoch + 1, config.nepochs + 1):
             if is_eval(i, config):
                 eval_count += 1
-        left_time = train_timer.mean_time * (config.nepochs - engine.state.epoch) + eval_timer.mean_time * eval_count
+        # Handle None values for mean_time (when timer hasn't been used yet)
+        train_mean_time = train_timer.mean_time if train_timer.mean_time is not None else 0
+        eval_mean_time = eval_timer.mean_time if eval_timer.mean_time is not None else 0
+        left_time = train_mean_time * (config.nepochs - engine.state.epoch) + eval_mean_time * eval_count
         eta = (datetime.datetime.now() + datetime.timedelta(seconds=left_time)).strftime("%Y-%m-%d %H:%M:%S")
         logger.info(
-            f"Avg train time: {train_timer.mean_time:.2f}s, avg eval time: {eval_timer.mean_time:.2f}s, left eval count: {eval_count}, ETA: {eta}"
+            f"Avg train time: {train_mean_time:.2f}s, avg eval time: {eval_mean_time:.2f}s, left eval count: {eval_count}, ETA: {eta}"
         )

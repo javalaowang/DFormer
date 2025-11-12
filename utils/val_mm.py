@@ -88,7 +88,11 @@ def evaluate(model, dataloader, config, device, engine, save_dir=None, sliding=F
         if ((idx + 1) % int(len(dataloader) * 0.5) == 0 or idx == 0) and (
             (engine.distributed and (engine.local_rank == 0)) or (not engine.distributed)
         ):
-            print(f"Validation Iter: {idx + 1} / {len(dataloader)}")
+            try:
+                print(f"Validation Iter: {idx + 1} / {len(dataloader)}")
+            except BrokenPipeError:
+                # Ignore broken pipe errors when using tee or similar
+                pass
         images = minibatch["data"]
         labels = minibatch["label"]
         modal_xs = minibatch["modal_x"]
@@ -263,7 +267,11 @@ def evaluate_msf(
         if ((idx + 1) % int(len(dataloader) * 0.5) == 0 or idx == 0) and (
             (engine.distributed and (engine.local_rank == 0)) or (not engine.distributed)
         ):
-            print(f"Validation Iter: {idx + 1} / {len(dataloader)}")
+            try:
+                print(f"Validation Iter: {idx + 1} / {len(dataloader)}")
+            except BrokenPipeError:
+                # Ignore broken pipe errors when using tee or similar
+                pass
         images = minibatch["data"]
         labels = minibatch["label"]
         modal_xs = minibatch["modal_x"]

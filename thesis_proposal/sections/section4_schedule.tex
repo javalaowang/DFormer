@@ -1,0 +1,166 @@
+\section{论文工作的总体安排及进度}
+
+\subsection{总体时间规划（14个月）}
+
+\begin{table}[h]
+\centering
+\caption{研究工作总体进度安排（2025.03-2026.05）}
+\begin{tabular}{clp{6cm}p{4cm}}
+\toprule
+阶段 & 时间 & 主要任务 & 里程碑成果 \\
+\midrule
+一 & 1-2月 & 文献调研、环境搭建 & 实验环境ready \\
+   & (2025.03-04) & 数据采集准备 & 数据采集开始 \\
+\midrule
+二 & 3-4月 & 数据采集与标注 & 完成3000张标注 \\
+   & (2025.05-06) & DFormerv2基线训练 & mIoU≥85\% \\
+\midrule
+三 & 5-7月 & SACL方法设计与实现 & 跨田块提升 \\
+   & (2025.07-09) & 跨田块泛化实验 & +6\%以上 \\
+\midrule
+四 & 8-10月 & MDA-CMC框架研究 & 完整方法实现 \\
+   & (2025.10-12) & 全面对比实验 & 消融实验完成 \\
+\midrule
+五 & 11-12月 & GIS系统开发 & 系统原型 \\
+   & (2026.01-02) & 论文撰写投稿 & 投稿完成 \\
+\midrule
+六 & 13-14月 & 学位论文撰写 & 学位论文完成 \\
+   & (2026.03-05) & 毕业答辩准备 & 答辩通过 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{关键里程碑}
+
+\subsubsection{第一阶段：前期准备（1-2月）}
+
+\textbf{主要任务}：
+\begin{itemize}
+    \item 深度文献调研：DFormerv2、外观不变性学习、农业遥感等
+    \item 开题报告撰写与答辩
+    \item 实验环境搭建：PyTorch、CUDA、DFormerv2代码复现
+    \item 数据采集准备：联系农学院、确定试验田、设备调试
+\end{itemize}
+
+\textbf{里程碑}：开题答辩通过，环境ready
+
+\subsubsection{第二阶段：数据与基线（3-4月）}
+
+\textbf{主要任务}：
+\begin{itemize}
+    \item 数据采集：3块田地共采集3000张RGB-D图像对
+    \item 数据标注：外包+自标完成3000张
+    \item DFormerv2训练：在我们数据集上训练基线模型
+    \item 性能评估：测试集mIoU、边界IoU等指标
+\end{itemize}
+
+\textbf{里程碑}：数据集完成，基线模型mIoU≥85\%
+
+\subsubsection{第三阶段：SACL方法（5-7月）}
+
+\textbf{主要任务}：
+\begin{itemize}
+    \item SACL设计：自适应权重模块、深度质量评估、空间编码
+    \item 双层优化：几何引导+特征对齐+梯度一致性
+    \item 跨田块实验：单域训练、多域测试，验证泛化能力
+    \item 消融实验：各组件贡献度分析
+\end{itemize}
+
+\textbf{里程碑}：跨田块平均mIoU提升≥6\%（vs 基线）
+
+\subsubsection{第四阶段：MDA-CMC与扩展（8-10月）}
+
+\textbf{主要任务}：
+\begin{itemize}
+    \item MDA-CMC设计：域内一致性+域间对比学习
+    \item 半监督学习：伪标签生成、跨模态验证、迭代训练
+    \item 消融实验：各组件贡献度分析
+    \item 对比实验：vs DFormerv2、CMX、TransUNet等SOTA方法
+\end{itemize}
+
+\textbf{里程碑}：完整方法体系，少样本适应（10\%数据→90\%性能）
+
+\subsubsection{第五阶段：系统与论文（11-12月）}
+
+\textbf{主要任务}：
+\begin{itemize}
+    \item GIS系统开发：WebGIS前端+后端API+模型部署
+    \item 论文撰写投稿：中文核心期刊或英文会议
+    \item 系统测试：真实场景验证、性能优化
+\end{itemize}
+
+\textbf{里程碑}：GIS系统原型、论文投稿完成
+
+\subsubsection{第六阶段：学位论文与答辩（13-14月）}
+
+\textbf{主要任务}：
+\begin{itemize}
+    \item 学位论文撰写：≥5万字，包含所有工作内容
+    \item 论文修改完善：根据导师意见修改
+    \item 毕业答辩准备：PPT、演讲稿、答辩预演
+\end{itemize}
+
+\textbf{里程碑}：学位论文完成，答辩通过，顺利毕业
+
+\subsection{关键时间节点}
+
+\begin{table}[h]
+\centering
+\caption{关键时间节点（2025.03-2026.05）}
+\begin{tabular}{cp{10cm}}
+\toprule
+时间 & 关键节点 \\
+\midrule
+2025.04 & 实验环境搭建完成，数据采集开始 \\
+2025.06 & 数据集完成（3000张），DFormerv2基线模型（mIoU≥85\%） \\
+2025.09 & SACL方法完成，跨田块实验验证（提升≥6\%） \\
+2025.12 & MDA-CMC完整方法体系完成，消融实验完成 \\
+2026.02 & GIS系统原型完成，论文投稿 \\
+2026.04 & 学位论文定稿 \\
+2026.05 & 毕业答辩，顺利毕业 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{风险与应对}
+
+\subsubsection{进度风险}
+
+\begin{itemize}
+    \item \textbf{风险}：天气影响数据采集进度
+    \item \textbf{应对}：预留1-2个月缓冲时间，雨季前完成主要采集
+\end{itemize}
+
+\begin{itemize}
+    \item \textbf{风险}：算法效果不达预期，需要反复调试
+    \item \textbf{应对}：多个基线对比，充分消融实验，降低单一方法依赖
+\end{itemize}
+
+\subsubsection{论文发表风险}
+
+\begin{itemize}
+    \item \textbf{风险}：期刊/会议拒稿
+    \item \textbf{应对}：准备备选期刊清单，根据审稿意见及时修改重投
+\end{itemize}
+
+\subsection{进度保障措施}
+
+\begin{itemize}
+    \item \textbf{周报制度}：每周向导师汇报进展，及时发现问题
+    \item \textbf{月度审查}：每月检查进度，对比计划，调整节奏
+    \item \textbf{并行工作}：数据采集与算法开发并行，提高效率
+    \item \textbf{备选方案}：关键环节准备Plan B，降低风险
+\end{itemize}
+
+\subsection{总结}
+
+本研究14个月的时间安排科学合理（2025.03-2026.05）：
+
+\begin{itemize}
+    \item \textbf{阶段清晰}：6个阶段，任务明确，衔接紧密
+    \item \textbf{节奏紧凑}：前期准备2个月，数据+基线2个月，方法研究6个月，系统+论文4个月
+    \item \textbf{里程碑明确}：每阶段有可量化的成果指标
+    \item \textbf{风险可控}：关键环节预留缓冲，备选方案充分
+\end{itemize}
+
+在导师指导下，严格按照计划执行，有信心按时完成高质量的硕士学位论文。

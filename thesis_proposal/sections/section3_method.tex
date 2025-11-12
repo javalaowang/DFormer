@@ -1,0 +1,409 @@
+\section{研究方法及技术路线}
+
+\subsection{研究方法}
+
+\subsubsection{数据采集与预处理方法}
+
+\textbf{（1）遥感数据获取}
+
+采用无人机低空遥感技术，具体方案：
+
+\begin{itemize}
+    \item \textbf{RGB影像}：DJI Phantom 4 Pro相机（20MP，2-5 cm/pixel）
+    \item \textbf{深度数据}：LiDAR点云（Velodyne VLP-16或DJI L1）生成DSM
+    \item \textbf{飞行参数}：
+    \begin{itemize}
+        \item 飞行高度：50-100米
+        \item 重叠率：前向80\%，旁向70\%
+        \item 飞行速度：5-8 m/s
+    \end{itemize}
+    \item \textbf{地面真值}：GPS定位倒伏区域，测量倒伏角度和面积
+\end{itemize}
+
+\textbf{（2）深度图生成}
+
+\begin{enumerate}
+    \item \textbf{LiDAR点云处理}：
+    \begin{itemize}
+        \item 点云滤波：去除噪声点
+        \item 地面分类：Cloth Simulation Filter（CSF）算法
+        \item DSM生成：IDW插值（分辨率与RGB一致）
+    \end{itemize}
+    
+    \item \textbf{相对高度计算}：
+    \begin{equation}
+    H_{relative}(x,y) = H_{DSM}(x,y) - H_{ground}(x,y)
+    \end{equation}
+    
+    \item \textbf{深度归一化}：
+    \begin{equation}
+    D_{norm}(x,y) = \frac{H_{relative}(x,y) - H_{min}}{H_{max} - H_{min}} \times 255
+    \end{equation}
+\end{enumerate}
+
+\textbf{（3）配准与质量控制}
+
+\begin{itemize}
+    \item RGB-DSM配准：基于GPS/IMU数据和特征点匹配
+    \item 配准精度：<1像素误差
+    \item 质量筛选：去除深度缺失>20\%的图像
+\end{itemize}
+
+\subsubsection{模型训练方法}
+
+\textbf{（1）训练配置}
+
+\begin{table}[h]
+\centering
+\caption{模型训练超参数}
+\begin{tabular}{ll}
+\toprule
+参数 & 值 \\
+\midrule
+优化器 & AdamW \\
+初始学习率 & 6e-5 \\
+学习率策略 & Poly（power=0.9） \\
+权重衰减 & 0.01 \\
+Batch size & 16（4×4 GPU） \\
+总Epochs & 300 \\
+Warmup epochs & 10 \\
+\midrule
+$\lambda_1$（域内一致性） & 0.5 \\
+$\lambda_2$（域间一致性） & 0.3 \\
+$\beta$（梯度一致性） & 0.2 \\
+$\tau$（对比学习温度） & 0.07 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{（2）数据增强策略}
+
+标准增强 + 外观增强：
+\begin{itemize}
+    \item 几何增强：RandomFlip、RandomRotate（90°倍数）、RandomScale（0.5-2.0）
+    \item RandomCrop：512×512
+    \item \textbf{外观增强}（模拟跨田块差异）：
+    \begin{itemize}
+        \item ColorJitter（brightness=0.4, contrast=0.4, saturation=0.4）模拟不同生长状态的叶色差异
+        \item 添加田面反射效果（模拟不同背景条件）
+        \item Cutout：随机遮挡（模拟不同冠层密度和阴影）
+    \end{itemize}
+\end{itemize}
+
+\textbf{（3）损失函数}
+
+\begin{equation}
+\begin{split}
+\mathcal{L}_{total} = & \mathcal{L}_{CE}(y, \hat{y}) + \lambda_{dice} \mathcal{L}_{Dice}(y, \hat{y}) \\
+& + \lambda_{aux} \mathcal{L}_{aux} \\
+& + \lambda_1 \mathcal{L}_{intra} + \lambda_2 \mathcal{L}_{inter}
+\end{split}
+\end{equation}
+
+其中：
+\begin{itemize}
+    \item $\mathcal{L}_{CE}$：交叉熵损失
+    \item $\mathcal{L}_{Dice}$：Dice损失（处理类别不平衡）
+    \item $\mathcal{L}_{aux}$：中间层辅助损失
+    \item $\mathcal{L}_{intra}, \mathcal{L}_{inter}$：一致性损失
+\end{itemize}
+
+\subsubsection{评估方法}
+
+\textbf{（1）定量评估}
+
+\begin{itemize}
+    \item mIoU（主要指标）
+    \item Pixel Accuracy
+    \item 倒伏类IoU（关键类别）
+    \item F1-Score
+    \item Kappa系数
+\end{itemize}
+
+\textbf{（2）定性评估}
+
+\begin{itemize}
+    \item 可视化对比（预测 vs 真值）
+    \item 错误案例分析
+    \item 边界质量评估
+\end{itemize}
+
+\textbf{（3）效率评估}
+
+\begin{itemize}
+    \item 参数量（Params）
+    \item 计算量（FLOPs）
+    \item 推理速度（FPS、ms/image）
+    \item GPU显存占用
+\end{itemize}
+
+\subsection{技术路线}
+
+\begin{figure}[h]
+\centering
+\begin{minipage}{0.9\textwidth}
+\small
+\textbf{阶段一：文献调研与数据准备（第1-2个月）}
+\begin{itemize}
+    \item 深入研读DFormerv2、v-CLR等核心论文
+    \item 调研农业遥感和倒伏监测文献（≥50篇）
+    \item 设计数据采集方案，联系合作单位
+    \item 搭建实验环境（GPU服务器、开发环境）
+    \item \textbf{里程碑}：开题答辩通过
+\end{itemize}
+
+\textbf{阶段二：基线模型构建（第3-4个月）}
+\begin{itemize}
+    \item 开始数据采集（地块A，≥1000张）
+    \item 数据预处理pipeline开发
+    \item 数据标注（700张训练+200验证+100测试）
+    \item DFormerv2代码复现，在NYU Depth v2验证
+    \item 模型适配到水稻倒伏场景
+    \item 基线训练和性能评估
+    \item \textbf{里程碑}：基线mIoU≥80\%
+\end{itemize}
+
+\textbf{阶段三：SACL方法研究（第5-7个月）}
+\begin{itemize}
+    \item 继续数据采集（地块B、C，各≥1000张）
+    \item SACL理论分析和公式推导
+    \item 空间自适应权重模块实现
+    \item 双层一致性框架开发
+    \item 超参数网格搜索（$\lambda_1, \lambda_2, \beta$）
+    \item 消融实验：验证各组件贡献
+    \item \textbf{里程碑}：跨地块提升≥8\%
+\end{itemize}
+
+\textbf{阶段四：MDA-CMC与半监督学习（第8-10个月）}
+\begin{itemize}
+    \item 数据采集完成（地块D、E，≥2000张）
+    \item 多域对齐框架实现
+    \item 对比学习模块开发
+    \item 半监督学习方法实现
+    \item Few-shot适应实验
+    \item 完整对比实验
+    \item \textbf{里程碑}：半监督达到全监督90\%
+\end{itemize}
+
+\textbf{阶段五：GIS系统开发（第11-13个月）}
+\begin{itemize}
+    \item 系统架构设计
+    \item 前端开发（地图组件、可视化）
+    \item 后端开发（API、数据库）
+    \item 模型优化部署（TensorRT、量化）
+    \item 系统集成测试
+    \item 用户测试和反馈
+    \item \textbf{里程碑}：可演示的系统原型
+\end{itemize}
+
+\textbf{阶段六：论文撰写（第14-18个月）}
+\begin{itemize}
+    \item 补充实验和数据整理
+    \item 论文各章节撰写
+    \item 英文论文撰写和投稿（可选）
+    \item 硕士论文修改和完善
+    \item 预答辩和正式答辩
+    \item \textbf{里程碑}：答辩通过，顺利毕业
+\end{itemize}
+\end{minipage}
+\end{figure}
+
+\subsection{可能遇到的问题及解决方案}
+
+\subsubsection{数据采集相关}
+
+\textbf{问题1：天气影响数据采集}
+
+\begin{itemize}
+    \item \textbf{风险}：台风、暴雨导致倒伏，但无法飞行采集
+    \item \textbf{解决方案}：
+    \begin{itemize}
+        \item 预留缓冲时间，在天气窗口密集采集
+        \item 多地块采集，降低单点风险
+        \item 预先准备应急方案（地面摄影补充）
+    \end{itemize}
+\end{itemize}
+
+\textbf{问题2：倒伏样本不足}
+
+\begin{itemize}
+    \item \textbf{风险}：某些年份、地块倒伏发生少
+    \item \textbf{解决方案}：
+    \begin{itemize}
+        \item 扩大采集范围，5个地块提高覆盖率
+        \item 利用历史遥感数据，补充标注
+        \item 与农科院合作，在人工倒伏试验田采集
+        \item 数据增强生成更多变化样本
+    \end{itemize}
+\end{itemize}
+
+\textbf{问题3：深度数据质量差}
+
+\begin{itemize}
+    \item \textbf{风险}：LiDAR点云稀疏，DSM有空洞
+    \item \textbf{解决方案}：
+    \begin{itemize}
+        \item 降低飞行高度，提高点云密度
+        \item 使用插值算法填补空洞（Kriging、IDW）
+        \item SACL的自适应权重会降低噪声影响
+        \item 备选：SfM（Structure from Motion）重建深度
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{模型训练相关}
+
+\textbf{问题4：跨域泛化效果不达预期}
+
+\begin{itemize}
+    \item \textbf{可能原因}：
+    \begin{itemize}
+        \item 训练数据分布单一
+        \item 一致性约束权重不合适
+        \item 域间差异过大
+    \end{itemize}
+    \item \textbf{解决方案}：
+    \begin{itemize}
+        \item 增加训练数据多样性（多地块联合训练）
+        \item 网格搜索最优$\lambda_1, \lambda_2$
+        \item 引入域自适应技术（DANN、ADDA）
+        \item 多任务学习（同时学习倒伏检测和作物分类）
+        \item 课程学习：从简单域到困难域渐进训练
+    \end{itemize}
+\end{itemize}
+
+\textbf{问题5：训练不收敛或不稳定}
+
+\begin{itemize}
+    \item \textbf{现象}：Loss震荡、梯度爆炸/消失
+    \item \textbf{解决方案}：
+    \begin{itemize}
+        \item 梯度裁剪（clip\_norm=1.0）
+        \item 降低学习率或使用更保守的scheduler
+        \item 减小一致性损失权重
+        \item 分阶段训练：先训练基线，再加一致性约束
+        \item 使用混合精度训练（AMP）提高稳定性
+    \end{itemize}
+\end{itemize}
+
+\textbf{问题6：类别不平衡}
+
+\begin{itemize}
+    \item \textbf{问题}：倒伏像素<20\%，正常像素>70\%
+    \item \textbf{解决方案}：
+    \begin{itemize}
+        \item Focal Loss：$FL(p_t) = -(1-p_t)^\gamma \log(p_t)$，$\gamma=2$
+        \item 类别权重：$w_{lodging}=3.0, w_{normal}=1.0, w_{bg}=0.5$
+        \item 难例挖掘：训练时重采样困难样本
+        \item Dice Loss：对类别不平衡鲁棒
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{系统开发相关}
+
+\textbf{问题7：大规模遥感图像处理}
+
+\begin{itemize}
+    \item \textbf{挑战}：单张图像可达10000×10000像素，GPU显存不足
+    \item \textbf{解决方案}：
+    \begin{itemize}
+        \item 滑动窗口切分：512×512瓦片，overlap=64
+        \item 批量推理：多GPU并行
+        \item 模型量化：INT8量化，减少显存50\%
+        \item TensorRT加速：推理速度提升2-3倍
+    \end{itemize}
+\end{itemize}
+
+\textbf{问题8：实时性要求}
+
+\begin{itemize}
+    \item \textbf{目标}：<10秒/km²（约1000张瓦片）
+    \item \textbf{解决方案}：
+    \begin{itemize}
+        \item 使用轻量模型DFormerv2-S（参数量减半）
+        \item GPU推理优化（TensorRT、ONNX Runtime）
+        \item 异步处理：后台任务队列（Celery）
+        \item 结果缓存：已处理区域不重复计算
+    \end{itemize}
+\end{itemize}
+
+\textbf{问题9：GIS系统开发复杂度高}
+
+\begin{itemize}
+    \item \textbf{挑战}：前后端开发、地理信息处理、大数据管理
+    \item \textbf{解决方案}：
+    \begin{itemize}
+        \item 采用成熟开源框架（Leaflet、Flask、PostGIS）
+        \item MVP策略：核心功能优先，逐步完善
+        \item 寻求合作：与计算机专业同学合作开发
+        \item 云服务：使用阿里云/腾讯云，降低运维复杂度
+    \end{itemize}
+\end{itemize}
+
+\subsection{技术路线图}
+
+\begin{figure}[h]
+\centering
+\fbox{
+\begin{minipage}{0.85\textwidth}
+\centering
+\textbf{技术路线总览}
+
+\vspace{0.3cm}
+
+\begin{tabular}{c}
+\framebox[0.8\textwidth]{文献调研 + 理论基础} \\
+$\downarrow$ \\
+\framebox[0.8\textwidth]{数据采集 + 标注} \\
+$\downarrow$ \\
+\framebox[0.8\textwidth]{DFormerv2基线模型} \\
+$\downarrow$ \\
+\framebox[0.8\textwidth]{SACL：空间自适应一致性学习} \\
+$\downarrow$ \\
+\framebox[0.8\textwidth]{MDA-CMC：多域对齐框架} \\
+$\downarrow$ \\
+\framebox[0.8\textwidth]{扩展：半监督学习} \\
+$\downarrow$ \\
+\framebox[0.8\textwidth]{GIS系统开发与集成} \\
+$\downarrow$ \\
+\framebox[0.8\textwidth]{论文撰写与答辩} \\
+\end{tabular}
+\end{minipage}
+}
+\caption{技术路线流程图}
+\end{figure}
+
+\subsection{关键技术细节}
+
+\subsubsection{自适应权重学习细节}
+
+\textbf{网络结构}：
+\begin{verbatim}
+MLP_weight(
+    Input: [q_d, p_spatial, c_scene]  # 维度: 3
+    FC1: 3 → 64, ReLU
+    FC2: 64 → 32, ReLU
+    FC3: 32 → 1, Sigmoid
+    Output: w ∈ [0, 1]
+)
+\end{verbatim}
+
+\textbf{训练策略}：
+\begin{itemize}
+    \item MLP参数与主网络联合训练
+    \item 初始化：$w=0.5$（均匀权重）
+    \item 正则化：$\mathcal{L}_{reg} = 0.01 \cdot \|w - 0.5\|_2^2$（避免退化）
+\end{itemize}
+
+\subsubsection{多尺度一致性实现}
+
+在4个特征层（$L_1, L_2, L_3, L_4$）应用约束：
+
+\begin{itemize}
+    \item $L_1$：分辨率1/4，通道64，权重0.5
+    \item $L_2$：分辨率1/8，通道128，权重0.75
+    \item $L_3$：分辨率1/16，通道256，权重1.0
+    \item $L_4$：分辨率1/32，通道512，权重1.0
+\end{itemize}
+
+\textbf{原理}：高层特征更抽象，更接近语义，权重更大。
+

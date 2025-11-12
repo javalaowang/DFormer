@@ -239,36 +239,72 @@ class EncoderDecoder(nn.Module):
         return out
 
     def forward(self, rgb, modal_x=None, label=None, return_features=False):
+        """
+        Forward pass of the model.
+        
+        Args:
+            rgb: RGB input images
+            modal_x: Additional modal input (e.g., depth)
+            label: Ground truth labels (for training)
+            return_features: If True, return features along with output/loss (for vCLR).
+                           If False, use original behavior (default: backward compatible).
+        
+        Returns:
+            - If label is not None and return_features=False: loss (original behavior)
+            - If label is not None and return_features=True: (loss, features) (vCLR mode)
+            - If label is None and return_features=False: output (original behavior)
+            - If label is None and return_features=True: (output, features) (vCLR mode)
+        """
         # print('builder',rgb.shape,modal_x.shape)
         
-        # Extract features from backbone
-        features = self.backbone(rgb, modal_x)
-        if len(features) == 2:  # if output is (rgb,depth) only use rgb
-            features = features[0]
-        
-        # Decode
-        if self.aux_head:
-            out, aux_fm = self._decode(features, rgb.shape)
-        else:
-            out = self._decode(features, rgb.shape)
-        
-        if label is not None:
-            loss = self.criterion(out, label.long())[label.long() != self.cfg.background].mean()
-            if self.aux_head:
-                loss += (
-                    self.aux_rate * self.criterion(aux_fm, label.long())[label.long() != self.cfg.background].mean()
-                )
-            
-            if return_features:
-                return loss, features
-            return loss
-        
         if return_features:
+            # Modified version: extract features for vCLR
+            # Extract features from backbone
+            features = self.backbone(rgb, modal_x)
+            if len(features) == 2:  # if output is (rgb,depth) only use rgb
+                features = features[0]
+            
+            # Decode
+            if self.aux_head:
+                out, aux_fm = self._decode(features, rgb.shape)
+            else:
+                out = self._decode(features, rgb.shape)
+            
+            if label is not None:
+                loss = self.criterion(out, label.long())[label.long() != self.cfg.background].mean()
+                if self.aux_head:
+                    loss += (
+                        self.aux_rate * self.criterion(aux_fm, label.long())[label.long() != self.cfg.background].mean()
+                    )
+                return loss, features
+            
             return out, features
-        return out
+        else:
+            # Original version: standard forward pass (backward compatible)
+            if self.aux_head:
+                out, aux_fm = self.encode_decode(rgb, modal_x)
+            else:
+                out = self.encode_decode(rgb, modal_x)
+
+            if label is not None:
+                loss = self.criterion(out, label.long())[label.long() != self.cfg.background].mean()
+                if self.aux_head:
+                    loss += (
+                        self.aux_rate * self.criterion(aux_fm, label.long())[label.long() != self.cfg.background].mean()
+                    )
+
+                return loss
+            return out
     
     def _decode(self, features, orisize):
-        """Helper method for decoding"""
-        out = self.decode_head.forward(features)
-        out = F.interpolate(out, size=orisize[-2:], mode="bilinear", align_corners=False)
-        return out
+        """Helper method for decoding features to output (used when return_features=True)"""
+        if self.aux_head:
+            out = self.decode_head.forward(features)
+            out = F.interpolate(out, size=orisize[-2:], mode="bilinear", align_corners=False)
+            aux_fm = self.aux_head(features[self.aux_index])
+            aux_fm = F.interpolate(aux_fm, size=orisize[-2:], mode="bilinear", align_corners=False)
+            return out, aux_fm
+        else:
+            out = self.decode_head.forward(features)
+            out = F.interpolate(out, size=orisize[-2:], mode="bilinear", align_corners=False)
+            return out

@@ -1,0 +1,120 @@
+\documentclass[12pt,a4paper]{ctexart}
+
+% 包引用
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{enumitem}
+\usepackage{multirow}
+
+% 页面设置
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+
+% 超链接设置
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\begin{document}
+
+% ====== 封面第一页 ======
+\begin{titlepage}
+\thispagestyle{empty}
+
+% 右上角学号
+\hfill \zihao{-4} \songti 学号：\underline{\hspace{4cm}}
+
+\vspace{2.5cm}
+
+\begin{center}
+
+% 学校名称和标题
+\zihao{-0} \heiti{南京林业大学} \\[0.8cm]
+\zihao{1} \heiti{专业学位研究生学位论文开题报告}
+
+\vspace{4.5cm}
+
+% 信息表格
+\zihao{3} \songti
+\renewcommand{\arraystretch}{2.5}
+\begin{tabular}{>{\heiti}rl}
+学生姓名： & \underline{\makebox[10cm][c]{\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ }} \\
+学位类别： & \underline{\makebox[10cm][c]{工程硕士\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ }} \\
+专业领域： & \underline{\makebox[10cm][c]{计算机技术\ \ \ \ \ \ \ \ \ \ \ \ \ \ }} \\
+研究方向： & \underline{\makebox[10cm][c]{计算机视觉与深度学习\ \ \ \ \ \ \ \ }} \\
+指导老师： & \underline{\makebox[10cm][c]{\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ }} \\
+学院名称： & \underline{\makebox[10cm][c]{信息科学技术学院\ \ \ \ \ \ \ \ \ \ }} \\
+\end{tabular}
+
+\vfill
+
+% 底部
+\zihao{-3} \songti
+南京林业大学研究生院 制
+
+\vspace{1cm}
+
+\end{center}
+\end{titlepage}
+
+% ====== 封面第二页：选题信息 ======
+\newpage
+\thispagestyle{empty}
+
+\vspace*{1.5cm}
+
+\noindent \zihao{-3} \heiti 学位论文拟选题目
+
+\vspace{0.8cm}
+
+% 选题信息表格
+\noindent
+\zihao{-4} \songti
+\renewcommand{\arraystretch}{1.5}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{|p{3.2cm}|p{11.5cm}|}
+\hline
+\multirow{3}{3.2cm}{\centering \textbf{名称}} & \multicolumn{1}{c|}{\zihao{-4} \heiti 基于深度学习的水稻倒伏遥感监测系统研究} \\
+& \\
+& \\
+\hline
+\multirow{4}{3.2cm}{\centering \textbf{类型}} & $\square$ 技术研发类 \hspace{3cm} $\square$ 工程设计类 \\
+& $\square$ 管理研究类 \hspace{3cm} $\square$ 其他 \underline{\hspace{3cm}} \\
+& \\
+& \\
+\hline
+\multirow{6}{3.2cm}{\centering \textbf{来源}} & $\square$ 国家项目 \hspace{3.5cm} $\square$ 省部级项目 \\
+& $\square$ 地、市级项目 \hspace{2.5cm} $\square$ 横向项目 \\
+& $\square$ 校内项目 \hspace{3.5cm} $\square$ 自选项目 \\
+& $\square$ 其他 \underline{\hspace{8cm}} \\
+& \\
+& \\
+\hline
+\end{tabular}
+
+\newpage
+\tableofcontents
+\newpage
+
+% 各章节内容
+\input{sections/section1_background.tex}
+\input{sections/section2_content.tex}
+\input{sections/section3_method.tex}
+\input{sections/section4_schedule.tex}
+\input{sections/section5_resources.tex}
+
+% 参考文献
+\input{sections/references.tex}
+
+\end{document}
+

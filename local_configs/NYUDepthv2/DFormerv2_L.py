@@ -2,7 +2,7 @@ from .._base_.datasets.NYUDepthv2 import *
 
 """ Settings for network, this would be different for each kind of model"""
 C.backbone = "DFormerv2_L"  # Remember change the path below.
-C.pretrained_model = "checkpoints/pretrained/DFormerv2_Large_pretrained.pth"
+C.pretrained_model = "checkpoints/pretrained/NYUDepthv2/NYUv2_DFormer_Large.pth"
 C.decoder = "ham"
 C.decoder_embed_dim = 1024
 C.optimizer = "AdamW"
@@ -12,8 +12,8 @@ C.lr = 6e-5
 C.lr_power = 0.9
 C.momentum = 0.9
 C.weight_decay = 0.01
-C.batch_size = 12
-C.nepochs = 500
+C.batch_size = 4  # Reduced to 4 due to OOM with batch_size=6 (originally 12)
+C.nepochs = 200
 C.niters_per_epoch = C.num_train_imgs // C.batch_size + 1
 C.num_workers = 0
 C.train_scale_array = [0.5, 0.75, 1, 1.25, 1.5, 1.75]
@@ -33,7 +33,7 @@ C.eval_flip = True  # False #
 C.eval_crop_size = [480, 640]  # [height weight]
 
 """Store Config"""
-C.checkpoint_start_epoch = 250
+C.checkpoint_start_epoch = 100  # Adjusted for 200 epochs training (was 250 for 500 epochs)
 C.checkpoint_step = 25
 
 """Path Config"""
